@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación de Actividades</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 30px;
+        }
+        .table-responsive {
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .table thead {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-evaluar {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .btn-evaluar:hover {
+            background-color: #218838;
+            color: white;
+        }
+        .nota-promedio {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .foto-thumbnail {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .alert {
+            margin-top: 20px;
+        }
+        .modal-header {
+            background-color: #007bff;
+            color: white;
+        }
+        .rating-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .rating-btn {
+            min-width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #007bff;
+            background-color: white;
+            color: #007bff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .rating-btn:hover {
+            background-color: #007bff;
+            color: white;
+        }
+        .no-activities {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navegación -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">Actividades App</a>
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link active" th:href="@{/}">Evaluaciones</a>
+                    <a class="nav-link" th:href="@{/admin/fotos}">Admin Fotos</a>
+                    <a class="nav-link" th:href="@{/log}">Log</a>
+                </div>
+            </div>
+        </nav>
+        
+        <h1 class="text-center text-primary mb-4">Evaluación de Actividades Realizadas</h1>
+        
+        <!-- Alert para mostrar mensajes -->
+        <div id="alert-container"></div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha Inicio</th>
+                        <th>Sector</th>
+                        <th>Nombre</th>
+                        <th>Tema</th>
+                        <th>Nota</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${#lists.isEmpty(actividades)}">
+                        <td colspan="7" class="no-activities">No hay actividades realizadas para evaluar</td>
+                    </tr>
+                    <tr th:each="actividad : ${actividades}" th:id="'actividad-' + ${actividad.id}">
+                        <td th:text="${actividad.id}"></td>
+                        <td th:text="${#temporals.format(actividad.diaHoraInicio, 'yyyy-MM-dd')}"></td>
+                        <td th:text="${actividad.sector ?: 'Sin sector'}"></td>
+                        <td th:text="${actividad.nombre}"></td>
+                        <td>
+                            <span th:if="${!#lists.isEmpty(actividad.temas)}" 
+                                  th:text="${actividad.temas[0].tema}"></span>
+                            <span th:if="${#lists.isEmpty(actividad.temas)}">-</span>
+                        </td>
+                        <td class="nota-promedio" th:id="'nota-' + ${actividad.id}">
+                            <span th:if="${actividad.promedio != null}" 
+                                  th:text="${#numbers.formatDecimal(actividad.promedio, 1, 1)}"></span>
+                            <span th:if="${actividad.promedio == null}">-</span>
+                        </td>
+                        <td>
+                            <button class="btn-evaluar" 
+                                    th:data-actividad-id="${actividad.id}"
+                                    th:data-actividad-nombre="${actividad.nombre}"
+                                    onclick="mostrarModalEvaluacion(this.dataset.actividadId, this.dataset.actividadNombre)">
+                                evaluar
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal para evaluar actividad -->
+    <div class="modal fade" id="evaluacionModal" tabindex="-1" aria-labelledby="evaluacionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="evaluacionModalLabel">Evaluar Actividad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selecciona una nota para la actividad: <strong id="actividadNombre"></strong></p>
+                    <div class="rating-buttons">
+                        <button class="rating-btn" onclick="evaluarActividad(1)">1</button>
+                        <button class="rating-btn" onclick="evaluarActividad(2)">2</button>
+                        <button class="rating-btn" onclick="evaluarActividad(3)">3</button>
+                        <button class="rating-btn" onclick="evaluarActividad(4)">4</button>
+                        <button class="rating-btn" onclick="evaluarActividad(5)">5</button>
+                        <button class="rating-btn" onclick="evaluarActividad(6)">6</button>
+                        <button class="rating-btn" onclick="evaluarActividad(7)">7</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let actividadIdActual = null;
+        let modal = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            modal = new bootstrap.Modal(document.getElementById('evaluacionModal'));
+        });
+
+        function mostrarModalEvaluacion(actividadId, nombreActividad) {
+            actividadIdActual = actividadId;
+            document.getElementById('actividadNombre').textContent = nombreActividad;
+            modal.show();
+        }
+
+        function evaluarActividad(nota) {
+            if (actividadIdActual === null) {
+                mostrarAlerta('Error: No se ha seleccionado una actividad', 'danger');
+                return;
+            }
+
+            // Validar que la nota esté entre 1 y 7
+            if (nota < 1 || nota > 7) {
+                mostrarAlerta('La nota debe estar entre 1 y 7', 'danger');
+                return;
+            }
+
+            // Mostrar loading
+            mostrarAlerta('Guardando evaluación...', 'info');
+
+            // Realizar llamada asíncrona con fetch
+            fetch(`/api/actividad/${actividadIdActual}/nota`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `nota=${nota}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar la nota en la tabla
+                    const notaElement = document.getElementById(`nota-${data.actividadId}`);
+                    if (notaElement) {
+                        if (data.promedio !== null) {
+                            notaElement.innerHTML = `<span>${data.promedio.toFixed(1)}</span>`;
+                        } else {
+                            notaElement.innerHTML = '<span>-</span>';
+                        }
+                    }
+                    
+                    // Cerrar modal
+                    modal.hide();
+                    
+                    // Mostrar mensaje de éxito
+                    mostrarAlerta('Evaluación agregada exitosamente', 'success');
+                } else {
+                    mostrarAlerta(data.message || 'Error al agregar la evaluación', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarAlerta('Error de conexión al servidor', 'danger');
+            });
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const alertContainer = document.getElementById('alert-container');
+            
+            // Remover alertas existentes
+            alertContainer.innerHTML = '';
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            alertContainer.appendChild(alertDiv);
+            
+            // Auto-hide después de 5 segundos para alertas de éxito
+            if (tipo === 'success' || tipo === 'info') {
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
